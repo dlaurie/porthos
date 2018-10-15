@@ -8,9 +8,19 @@
 \\   TODO: write the TeX documentation.
 
 \\ !! Development notes:
-\\   1. If a routine has an "addhelp", that routine has been briefly tested 
-\\      during an interactive session.
-\\   2. The TeX documentation does not exist yet.
+\\   1. If a routine has an "addhelp" in "porthos-help.gp", that routine 
+\\      is considered to be stable. 
+\\   2. If a routine has an "addhelp" here only, that routine has been 
+\\      briefly tested during an interactive session.
+\\   3. If a routine has no "addhelp", it is either an oversight, or the
+\\      routine is untested.
+\\   3. The TeX documentation does not exist yet.
+
+PORTHOS_VERSION=60;
+\\ 60: 1 May 2016, incorporates GP language changes after 2009: 
+\\    '||' for '|', 'my' for 'local'
+\\ 54: improvements to help only
+\\ 53: 4 December 2008
 
 \\ Global variables
 {if(type(PORTHOS_VERSION)!="t_INT",
@@ -23,20 +33,27 @@ WARN_SHIFT=NORMALIZED=FOOLHARDY=DEBUG=0; WARN_NONPOSITIVE=WARN_LOSS=1;
 \\ WARN_LOSS has not been implemented yet.  It should issue a warning
 \\ whenever something is done that discards information, e.g. calculating
 \\ nodes and weights from recursion coefficients defined for even degree.
-PORTHOS_VERSION=60;
-\\ 60: 1 May 2016, incorporates GP language changes: 
-\\    '||' for '|', 'my' for 'local'
-\\ 54: improvements to help only
-\\ 53: 4 December 2008
 
+incompatible=0;
 gp_version = subst(Pol(version),x,10)
-incompatible = 0
 if (gp_version<240, if(PORTHOS_VERSION>=60, incompatible="old"))
 if (gp_version>=240, if(PORTHOS_VERSION<60, incompatible="new"))
 { if (incompatible, print("Your version of Pari-GP is too "incompatible
 " for your Porthos.\n Both [Pari>=2.4,Porthos>=0.60] or neither must hold.")) } 
 
-\\ Routines that create or modify two-term coefficients
+\\ QE: Routines that create or modify two-term coefficients
+
+is_scalar(gen)= type(gen)!="t_VEC" && type(gen)!="t_MAT"
+is_vector(gen,len)= type(gen)=="t_VEC" && #gen==len
+
+{is_QE(gen)= is_vector(gen,3) && type(gen[1])=="t_VEC" && type(gen[2])=="t_VEC"
+  && #gen[1]>=#gen[2] && #gen[1]<=#gen[2]+1 && is_scalar(gen[3]) }
+  
+{qe_sf(r)=my(n,q,e,c,u,p); u=numerator(r); p=denominator(r); n=length(p)-1; 
+  q=vector(n); e=vector(n-1); c=polcoeff(u,n-1)/polcoeff(p,n); p='z*u-c*p;
+  for(j=1,n-1, q[j]=polcoeff(p,n-j)/polcoeff(u,n-j); u=p-q[j]*u;
+    e[j]=polcoeff(u,n-j-1)/polcoeff(p,n-j); p='z*u-e[j]*p); 
+  q[n]=polcoeff(p/u,0); [q,e,c]}
 
 {qe_radau(qe,x0,n)=my(x,P); if(n==0, n=length(qe[2])+1);
   if(length(qe[1])<n, qe[1]=concat(qe[1],0)); 
@@ -60,10 +77,17 @@ if (gp_version>=240, if(PORTHOS_VERSION<60, incompatible="new"))
 {addhelp(qe_antigauss,
    "qe_antigauss(qe): modify qe to give anti-Gauss formula")} 
 
-{qe_shift(qe,int1,int2)=my(f,h); if(int2==0, int2=[0,2]);
-   f=(int1[2]-int1[1])/(int2[2]-int2[1]); h=int1[1]-f*int2[1];
-   stqd(qe*f,-h)}
-addhelp(qe_shift, "qe_shift(qe,int1,{int2=[0,2]}): shift two-term coefficients from interval int2 to interval int1")
+{qe_modify(qe,modify)=
+  if(!modify, return(qe));
+  if(modify=="anti", return(qe_antigauss(qe)));
+  if(modify=="radau", return(qe_radau(qe)));
+  if(modify=="lobatto", return(qe_lobatto(qe,2)));
+  error("Unknown modification '"modify"' in qe_modify")}
+
+\\{qe_shift(qe,int1,int2)=my(f,h); if(int2==0, int2=[0,2]);
+\\   f=(int1[2]-int1[1])/(int2[2]-int2[1]); h=int1[1]-f*int2[1];
+\\   stqd(qe*f,-h)}
+\\addhelp(qe_shift, "qe_shift(qe,int1,{int2=[0,2]}): shift two-term coefficients from interval int2 to interval int1")
 
 {qe_jacobi(m,alf,bet)=my(kap,n); n=floor((m+1)/2);   
   [vector(n,k, kap=2*k+alf+bet; 2*(k+bet)/kap*if(k>1,(kap-k)/(kap-1),1)),
@@ -100,8 +124,11 @@ addhelp(qe_shift, "qe_shift(qe,int1,{int2=[0,2]}): shift two-term coefficients f
   " smallest possible k.  The result is a vector, each component of which"
   " is a qe.")} 
 
-\\ Routines that create or modify three-term coefficients
+\\ AB: Routines that create or modify three-term coefficients
 
+{is_AB(gen)= is_vector(gen,2) && type(gen[1])=="t_VEC" && type(gen[2])=="t_VEC"
+  && #gen[1]<=#gen[2] && #gen[1]>=#gen[2]-1 } 
+  
 {ab_radau(ab,xn)=my(n,p); n=length(ab[2]);
   if(length(ab[1])<n, ab[1]=concat(ab[1],0));
   p=p_ab(ab,xn); ab[1][n]=ab[1][n]+p[n+1]/p[n]; ab}
@@ -161,8 +188,17 @@ addhelp(ab_shift, "ab_shift(ab,int1,{int2=[-1,1]}): shift three-term coefficient
 
 ab_radkron(ab,xn,n)=ab_radau(ab_wdiv1(ab_kronrod(ab_wmul1(ab,xn),n-1),ab[2][1],xn),xn) 
 
+ab_hermite(deg,p)=my(m); m=ceil(deg/2); [vector(m,n,0),concat(sqrt(Pi),vector(deg-m,n,n/2))];  
+
+{ab_modify(ab,modify)=
+  if(!modify, return(ab));
+  if(modify=="anti", ab[#ab,2]*=2; return(ab));
+  if(modify=="radau", return(ab_radau(ab)));
+  error("Unknown modification '"modify"' in qe_modify")}
 \\ Routines that create or modify quadrature formulas
 
+is_XW(gen)= type(gen)=="t_MAT" && (#gen==2 || #gen==3)
+is_DW(gen)= is_vector(gen,2) && is_scalar(gen[1]) && is_XW(gen[2])
 
 \\ Direct conversions  ab <=> qe <=> dw <=> xw.     
 
@@ -181,7 +217,8 @@ addhelp(qe_ab, "qe_ab(ab)");
 addhelp(ab_qe, "ab_qe(qe)");
 
 \\ Observation: the last weights are not accurate to full relative precision
-{dw_qe(qe)=my(d,w,x,pu,nu,n); d=gaps(qe); n=length(d); dw=matrix(n,2); x=0;
+{dw_qe(qe)=my(d,w,x,pu,nu,n);  
+  d=gaps(qe); n=length(d); dw=matrix(n,2); x=0;
   for(j=1,n, x=x+d[j]; dw[j,1]=d[j]; dw[j,2]=weight(qe,x));
   [0,dw]} 
 addhelp(dw_qe, "dw_qe(qe)");
@@ -202,7 +239,7 @@ addhelp(dw_xw, "dw_xw(xw)");
   for(k=2,n, dw[k,1]=dw[k,1]+dw[k-1,1]); dw}
 addhelp(xw_dw, "xw_dw(dw)");
 
-{xw_ab(ab)=my(x,xw,n); x=qlpoles(ab); n=length(x); xw=matrix(n,2);
+{xw_ab(ab)=my(x,xw,n); x=vecsort(qlpoles(ab)); n=length(x); xw=matrix(n,2);
   DEBUG=1;
   for(k=1,n, xw[k,1]=x[k]; xw[k,2]=weight_ab(ab,x[k]));
 \\ prql(ab,x[k]); xw[k,2]=LASTCS[1]*ab[2][1];
@@ -211,15 +248,15 @@ addhelp(xw_dw, "xw_dw(dw)");
   xw}
 
 {ab_dw(dw)=my(h); h=dw[2][1,1]; dw[2][1,1]=0; 
-  Shift(ab_qe(qe_dw(dw)),[0,h],[-h,0])}
+  Shift(ab_qe(qe_dw(dw)),-h)}
     
 \\ Shorthand for some indirect conversions
-xw_qe(qe)=xw_dw(dw_qe(qe));
-qe_xw(xw)=qe_dw(dw_xw(xw));
-ab_xw(xw)=ab_dw(dw_xw(xw));  \\ Should be Gragg-Harrod
-dw_ab(ab)=dw_xw(xw_ab(ab));  \\ Could be QL with explicit shifts
+\\xw_qe(qe)=xw_dw(dw_qe(qe));
+\\qe_xw(xw)=qe_dw(dw_xw(xw));
+\\ab_xw(xw)=ab_dw(dw_xw(xw));  \\ TODO: Should be Gragg-Harrod
+\\dw_ab(ab)=dw_xw(xw_ab(ab));  \\ Could be QL with explicit shifts
 
-\\ Operations on continued and partial fractions
+\\ Operations on continued fractions
 \\ stqd: f(z) -> f(z-sig)
 \\ prqd: f(z) -> z*f(z-sig)-k (k determined by f^(infinity)=0)
 \\ QD algorithms: Parlett, Acta Numerica 1995, p466, 468
@@ -257,18 +294,18 @@ addhelp(prqd, "prqd(qe,{sig=0}): progressive qd algorithm");
     if(i<n, BB=T[2][i+1]; R=P+BB; oldC=C; T[2][i]=S*R; C=P/R; S=BB/R));
   T[1][n]=sig+gam; T[2][n]=S*P; LASTCS=[C,S]; T}
 
-{r_qe(qe,x)=my(f,n,c); q=qe[1]; e=qe[2]; n=length(q); c=qe[3]; r=0; 
-  forstep(j=n,1,-1, r=if(j>1,e[j-1],c)/(x-q[j]/(1-r))); r}
+\\ Operations on Stieltjes functions
 
-{r_ab(ab,x)=my(r,n); a=ab[1]; b=ab[2]; n=length(a);
-  r=0; forstep(j=n,1,-1, r=b[j]/(x-a[j]-r)); r}
+{is_SF(gen)= type(gen)=="t_RFRAC" && 
+  poldegree(numerator(gen)) == poldegree(denominator(gen))-1 }
 
-{r_xw(xw,t)=sum(j=1,matsize(xw)[1], xw[j,2]/(t-xw[j,1]))}
+{sf_qe(qe)=my(f,n,c); q=qe[1]; e=qe[2]; n=length(q); c=qe[3]; r=0; 
+  forstep(j=n,1,-1, r=if(j>1,e[j-1],c)/('z-q[j]/(1-r))); r}
 
-{stieltjes_function(u,x)=my(typ); typ=Type(u);
-  if(typ=="AB", r_ab(u,x),  if(typ=="QE", r_qe(u,x), if(typ=="XW", r_xw(u,x),
-    if(typ=="DW", r_xw(xw_dw(u),x),
-  error("Can't evaluate stieltjes_function for Type "typ)))))}
+{sf_ab(ab)=my(r,n); a=ab[1]; b=ab[2]; n=length(a);
+  r=0; forstep(j=n,1,-1, r=b[j]/('z-a[j]-r)); r}
+
+{sf_xw(xw)=sum(j=1,#xw~, xw[j,2]/('z-xw[j,1]))}
 
 {o_pol(u,x)=my(typ); typ=Type(u);
   if(typ=="XW", u=ab_xw(u); typ="AB");
@@ -286,27 +323,80 @@ addhelp(prqd, "prqd(qe,{sig=0}): progressive qd algorithm");
   p[1]=1; for(k=1,n, p[k+1]=(x-a[k])*p[k]-if(k>1,b[k]*p[k-1])); p}
 addhelp(p_ab, "p_ab(ab,x): evaluate polynomials p_k(x)");
 
-{qe_r(r)=my(n,q,e,c,u,p); u=numerator(r); p=denominator(r); n=length(p)-1; 
-  q=vector(n); e=vector(n-1); c=polcoeff(u,n-1)/polcoeff(p,n); p=x*u-c*p;
-  for(j=1,n-1, q[j]=polcoeff(p,n-j)/polcoeff(u,n-j); u=p-q[j]*u;
-    e[j]=polcoeff(u,n-j-1)/polcoeff(p,n-j); p=x*u-e[j]*p); q[n]=p/u; [q,e,c]}
+\\ Operations involving modified moments, type 'NU'. These are moments 
+\\ 'nu' with respect to the classical Chebyshev polynomials (not monic,
+\\ over [-1,1]), and moments 'mu' with respect to an arbitrary monic basis 
+\\ generated by an object Z of Type QE.
 
-\\ Operations involving modified moments.  
-\\ In all of these, the inner product is the one associated with qe, not QE.  
+{ is_NU(gen)= my(k,ok); k=1; ok=type(gen)=="t_VEC" && #gen[1]>0;
+  while(ok&&k<=#gen, ok = is_scalar(gen[k]); k=k+1); ok }
+
+\\ moments relative to classical Chebyshev polynomials
+{nu_xw(xw,n)= my(nu,T0,T1,T2,x,w);
+  if(n==0,n=Dimension(xw));
+  x=xw[,1]; w=xw[,2]~;
+  nu=vector(n); T0=vector(#x,j, 1)~; T1=x;
+  nu[1]=w*T0; nu[2]=w*T1;
+  for(k=3,n, T2=vector(#x,j, 2*x[j]*T1[j]-T0[j])~; nu[k]=w*T2;
+    T0=T1; T1=T2);
+  nu }
+
+\\ Recursion formulas from Chebyshev moments as in JCAM(5)1979-p235-243.pdf
+{ ab_nu(nu,n) = my(a,b,nrm,old,p0,p1,p2,q,r,
+    \\ multiply T-series by Tk
+    tkpk(a) = my(b); b=vector(2*#a-1); b[#a]=a[1];
+      for(i=1,#a-1,b[#a+i]=a[i+1]/2;
+      b[#a-i]=a[i+1]/2); b,
+    \\ multiply T-series by T1
+    t1pk(a) = my(b); b=vector(#a+1); 
+      b[2]=a[1]; if (#a==1, b[1]=0; return(b));
+      b[1]=a[2]/2; for (i=2,#a, b[i+1]+=a[i]/2);
+      for (i=3,#a, b[i-1]+=a[i]/2); b,
+    \\ scalar product of x with a possibly offset part of y
+    scalp(x,y,d) = sum(j=1,#x, x[j]*y[j+d]));
+  if (n==0,n=floor(#nu/2)); a=vector(n); b=vector(n); 
+  p1=[1]; b[1]=nu[1];
+  for (k=1,n,
+    q=tkpk(p1); p2=t1pk(p1);  
+    nrm = scalp(q,nu); 
+    r=0; if (k>1, b[k]=nrm/old; r=p1[k-1]/p1[k]);
+    if(k==2, r=2*r);
+    a[k] = (scalp(q,nu,1)/nrm+r)/2;
+    for(i=1,#p1, p2[i]-=a[k]*p1[i]);
+    if (k>2, b[k]=b[k]/2); 
+    for(i=1,#p0, p2[i]-=b[k]*p0[i]);
+    p0=p1; p1=p2; old=nrm;
+  );
+  [a,b]
+}
+
+nu_qe(qe)=my(k=1,mu=mu_qe(qe,"Che")); for(j=3,#mu, k=k*2; mu[j]=k*mu[j]); mu
+  
+\\ Mixed moments.
+\\ In mu_qe, qe_mu and mu_xw, the inner product is the one associated 
+\\ with qe, not Z, which is used purely to generate the basis polynomials. 
 \\ Relative to DPL(1999) p140, the equations differ because we do not use any
 \\ origin 0 vectors or indices here.  Thus, the indices on q, e, Q (=psi) and 
 \\ E (=eta) are one less.  All modified moments are NORMALIZED so that mu[1]=1.
 
-{mu_qe(qe,Z,flag)=my(Q,E,N,q,e,n,mu,ro,d,m,s);
+{mixed(qe,Z,flag)=my(Q,E,N,q,e,n,mu,ro,d,m,s);
+  if(!Z, return(nu_qe(qe)));
   Q=Z[1]; E=Z[2]; N=length(Q);  q=qe[1]; e=qe[2]; n=length(q);
   mu=if(flag, matrix(N+1,N+1), vector(N+1)); ro=[qe[3]]; d=0; s=1;
   for(l=1,N+1, m=s; s=min(m+1,N-l+2); nu=vector(s,k,
       if(k<=m,ro[k]) + if(k>1,q[k-1]*ro[k-1]) - if(k<=d,Q[l-1]*nu[k]));
     if(flag, for(j=1,s, mu[j,l]=nu[j]), mu[l]=nu[1]); if (l==N+1, break);
     d=s; s=vecmin([d,n,N-l+1]); ro=vector(s,k,
-      if(k<d,nu[k+1]) + if(k>1,e[k-1]*nu[k]) - if(k<=m&l>1,E[l-1]*ro[k]))); mu} 
+      if(k<d,nu[k+1]) + if(k>1,e[k-1]*nu[k]) - if(k<=m&l>1,E[l-1]*ro[k]))); mu}
+{addhelp(mixed, 
+"mixed(qe,Z,flag): Mixed moments of monic orthogonal polynomials generated"
+"\nby qe and Z, in the inner product of qe. flag=0 means only the first"
+"\nrow, anything else means the full matrix");}
 
-{qe_mu(nu,Z,n)=my(q,e,Q,E,m,ro,nu1); Q=Z[1]; E=Z[2];
+mu_qe=mixed
+
+{qe_mu(nu,Z,n)=my(q,e,Q,E,m,ro,nu1);
+  Q=Z[1]; E=Z[2];
   if(n==0, n=floor(min(length(nu),length(Q)+1)/2)); 
   q=vector(n); e=vector(n-1); m=2*n; nu1=nu[1]; nu=concat(0,nu); 
   for(k=1,n, 
@@ -314,18 +404,27 @@ addhelp(p_ab, "p_ab(ab,x): evaluate polynomials p_k(x)");
     if(k>1, e[k-1]=ro[1]/nu[1]); m=m-1; 
     nu=vector(m,l, ro[l+1] + if(k+l>2,ro[l]*E[k+l-2]) - if(k>1,e[k-1]*nu[l+1]));
     q[k]=nu[1]/ro[1]; m=m-1); [q,e,nu1]}
+addhelp(qe_mu, "qe_mu(nu,Z,n)");
 
-{mu_ab="Not implemented: mu_ab"}
-
-{mu_xw(xw,R)=my(p,pk); 
+{mu_xw(xw,R)=my(p,pk);
+  if(type(R)=="t_INT", return(nu_xw(xw)));
   for(k=1,matsize(xw)[1], p=if(k>1,p)+xw[k,2]*o_pol(R,xw[k,1])); p}
+addhelp(mu_xw, "mu_xw(xw,R)");
+
+\\ Operations involving factorial series TODO: WHY IS THIS HERE?
+
+is_FS(gen)= type(gen)=="t_MAT" && matsize(gen)[1]==2
 
 {fs_xw(xw)=my(n); n=matsize(xw)[1];
     for(k=1,n-1, xw[k,2]=sum(j=k,n,xw[j,2]); 
         for(j=k+1,n, xw[j,2]*=(xw[j,1]-xw[k,1]))); xw}
-{r_fs(xw,t)=my(f); f=0;
-   forstep(k=matsize(xw)[1],1,-1, f=(f+xw[k,2])/(t-xw[k,1])); f }
+addhelp(fs_xw, "fs_xw(xw)");
 
+{xw_fs(fs)=my(n); n=matsize(fs)[1];} \\ TODO
+
+{sf_fs(fs,t)=my(f); f=0;
+   forstep(k=matsize(fs)[1],1,-1, f=(f+fs[k,2])/(t-fs[k,1])); f }
+addhelp(sf_fs, "sf_fs(fs)");
 
 \\ Calculation of nodes and weights 
 
@@ -390,13 +489,13 @@ addhelp(xw_shift, "xw_shift(xw,int1,{int2=[-1,1]}): shift formula from interval 
    dw=dw*f; dw[1]=dw[1]+h; dw}
 addhelp(xw_shift, "xw_shift(xw,int1,{int2=[0,2]}): shift formula from interval int2 to interval int1")
 
-{qlpoles(T)=my(n,d,a1,a2,b,iter,x);
+{qlpoles(T)=my(n,d,a1,a2,b,iter=0,x);
   n=length(T[1]); T[2]=take(T[2],n); a1=T[1][1]; x=[]; if(n==1, return([a1]));
   b=T[2][2]; a2=T[1][2];
   if(n==2, d=(a2-a1)/2; h=b/(d+if(d<0,-1,1)*sqrt(d^2+b)); return([a1-h,a2+h]));
-  while(n>2, d=abs(T[1][1])+abs(T[1][2]);
-    while(abs(T[2][2])+d>d, sig=qlpoles(AB(T,3))[1]; T=prql(T,sig);
-      d=abs(T[1][1])+abs(T[1][2]) );
+  while(n>2, d=abs(T[1][1])+abs(T[1][2]); 
+    while(abs(T[2][2])+d>d || iter<10, sig=qlpoles(Take(T,4))[1]; T=prql(T,sig);
+      d=abs(T[1][1])+abs(T[1][2]); iter=iter+1 );
     x=concat(x,T[1][1]); n=n-1; T=[take(T[1],-n),take(T[2],-n)]);
   concat(x,qlpoles(T)) }
 
@@ -439,17 +538,20 @@ addhelp(xw_shift, "xw_shift(xw,int1,{int2=[0,2]}): shift formula from interval i
   if(type(x)!="t_VEC", return(x));
   if(type(x[1])=="t_VEC", for(j=1,n,x[j]=drop(x[j],k)); return(x));
   if(k>=0, vector(n-k,j,x[j+k]), vector(n+k,j,x[j]))}
+addhelp(drop,"drop(x,k): drop first k or last -k elements of vector x, or of each element if x is a vector of vectors")
 
 {take(x,k)=my(n); n=length(x); 
   if(type(x)!="t_VEC", return(x));
   if(type(x[1])=="t_VEC", 
      for(j=1,n,x[j]=take(x[j],k-(j-1)*sign(k))); return(x));
   if(k>=0, vector(k,j,x[j]), vector(-k,j,x[n+k+j]))}
+addhelp(take,"take(x,k): keep only first k or last -k elements of vector x, or of each element if x is a vector of vectors")
 
 {reverse(x)=my(n); n=length(x);
   if(type(x)!="t_VEC", return(x));
   if(type(x[1])=="t_VEC", for(j=1,n,x[j]=reverse(x[j])); return(x));
   vector(n,j,x[n+1-j])}
+addhelp(reverse,"reverse(x): reverse the vector x, or each element if x is a vector of vectors")
 
 fac(x)=if(type(x)=="t_INT", x!, gamma(1+x));
 addhelp(fac, "fac(x): x!, taking into account whether x is integer") 
@@ -464,10 +566,13 @@ inside(x,interval)= x>=interval[1] & x<=interval[2];
   if(abs(Z1[3]-Z2[3])>eps, return(-1));
    while(1, if(j>n||j>N||abs(Z1[1][j]-Z2[1][j])>eps, break); d=d+1;
     if(j>=n||j>=N||abs(Z1[2][j]-Z2[2][j])>eps, break); d=d+1; j=j+1); d}
+addhelp(exactness,"exactness(Z1,Z2,eps): degree of polynomial to which Z1 and Z2 agree to optional tolerance");
 
 vxw_vqe(vqe)=vector(length(vqe),n,xw_qe(vqe[n]))
 
-integrate(fct,xw)=my(s); for(j=1,matsize(xw)[1], x=xw[j,1]; s=s+xw[j,2]*eval(fct)); s
+{integrate(fct,xw)= if(type(fct)!="t_CLOSURE", 
+  error("first parameter to 'integrate' must be a t_CLOSURE")); 
+  sum(j=1,matsize(xw)[1], xw[j,2]*fct(xw[j,1])) }
 
 {stratified_integrate(vxw)=my(m,y); m=length(vxw); y=vector(m);
   for(k=1,m, y[k]=integrate(vxw[k]); if(k>1, y[k]=(y[k]+y[k-1])/2)); y}
@@ -479,27 +584,54 @@ integrate(fct,xw)=my(s); for(j=1,matsize(xw)[1], x=xw[j,1]; s=s+xw[j,2]*eval(fct
   pk=SHORT_POLYNOMIALS[k]; 
   if(u>=pk & u<=concat(pk,"}"), return(pk)))}
   
+\\ --- Moment expansion from weight function ---
+\\ Only actually works if w = (x)->1 because Pari-GP can't do a definite
+\\ integral of a power series
+\\ Will need something like Lewanowicz's algorithm if we are to get
+\\ anything useful out of knowing w.
+{mx_fct(w,n) = my(serp=default(seriesprecision),s);
+  if(n,default(seriesprecision,n),n=serp);
+\\ we want the expansion
+\\ intformal(w(x)/(z-x),'x)) = mu0/z + mu1/z^2 + ... + mun/z^n + O(z^-(n+1))
+\\ but GP (a) can't do negative power asymptotics (b) will not expand the
+\\ quotient.
+\\ rewrite as
+\\ intformal(t*w(x)/(1-x*t),'x)) = mu0*t + mu1*t^2 + ... + mun*t^n + O(t^(n+1))
+  s=sum(k=0,n-1,('x*'t)^k)+O('t^(n+1));
+  s='t*intformal(w('x)*s,'x);
+  default(seriesprecision,serp); 
+  subst(s,x,1) }
+
 \\ AB, QE, XW, DW: There is a lot of duplication, which might be
 \\ avoidable by clever programming.
 
+
+\\ -------------- High-level frontend ---------------
+
 {AB(u,deg,p1,p2)=my(typ,m,n); typ=Type(u); 
+  if (is_AB(u), return(u));
+  if (is_XW(u), u=dw_xw(u));    
+  if (is_SF(u), u=qe_sf(u)); \\ TODO: implement ab_sf
+  if (is_DW(u), u=qe_dw(u));
+  if (is_QE(u), return(ab_qe(u)));
   if (typ=="t_INT", deg=u; u="Leg"; typ="t_STR");
   if (typ=="t_STR", typ=findpolynomial(u);
     if (typ=="Che", p1=-1/2; p2=p1; typ="Jac");
     if (typ=="Leg", p1=0; p2=0; typ="Jac");
     if (typ=="Geg", p1=p1-1/2; p2=p1; typ="Jac");
-    if (typ=="Jac", return(ab_shift(AB(qe_jacobi(deg,p1,p2)),[-1,1],[0,2])));
-    if (typ=="Lag", return(AB(qe_laguerre(deg,p1))));
+    if (typ=="Jac", return(ab_shift(ab_qe(qe_jacobi(deg,p1,p2)),[-1,1],[0,2])));
+    if (typ=="Lag", return(ab_qe(qe_laguerre(deg,p1))));
     if (typ=="Her", return(ab_hermite(deg,p1)));
     if (typ=="Ref", return(ab_refinable(deg,p1))));
-  if (deg==0 & typ=="AB", return(u));
-  if (typ=="AB", return(Take(u,deg+1,typ)));
-  if (typ=="QE", return(ab_qe(u)));
-  if (typ=="XW", return(ab_xw(u)));
-  if (typ=="DW", return(ab_dw(u)))
 }
 
 {QE(u,deg,p1,p2)=my(typ,m,n); typ=Type(u);
+  if (is_QE(u), return(u));
+  if (is_AB(u), return(qe_ab(u)));
+  if (is_XW(u), u=dw_xw(u));
+  if (is_DW(u), return(qe_dw(u)));
+  if (is_SF(u), return(qe_sf(u)));
+  if (is_NU(u), return(qe_mu(u)));
   if (typ=="t_INT", deg=u; u="Leg"; typ="t_STR");
   if (typ=="t_STR", typ=findpolynomial(u); 
     if (typ=="Che", p1=-1/2; p2=p1; typ="Jac");
@@ -509,34 +641,42 @@ integrate(fct,xw)=my(s); for(j=1,matsize(xw)[1], x=xw[j,1]; s=s+xw[j,2]*eval(fct
     if (typ=="Lag", return(qe_laguerre(deg,p1)));
     if (typ=="Her", error("Not implemented: QE Hermite"));
     if (typ=="Ref", return(QE(ab_refinable(dim,p1)))));
-  if (deg==0 & typ=="QE", return(u)); 
-  if (typ=="QE", return(Take(u,deg+1,typ)));
-  if (typ=="AB", return(qe_ab(u)));
-  if (typ=="XW", return(qe_xw(u)));
-  if (typ=="DW", return(qe_dw(u)))
 }
 
-{XW(u,npts,p1,p2)=my(typ,m,n,deg); typ=Type(u); 
-  if (typ=="t_INT", npts=u; u="Leg"; typ="t_STR");
+{XW(u,npts,p1,p2,modify)=my(deg,shifted=0,family);
+print("Type = ",Type(u));
+  if (is_XW(u), return(u));
+  if (is_DW(u), return(xw_dw(u)));
+  if (is_NU(u), u=ab_nu(u));
+  if (is_SF(u), u=qe_sf(u));
+\\ --- convert string or numeric arguments to AB or QE
+  if (type(modify)!="t_STR",
+    if (type(p2)=="t_STR", modify=p2; p2=0,
+      if (type(p1)=="t_STR", modify=p1; p1=0,
+        if (type(npts)=="t_STR", modify=npts))));
+  if (type(u)=="t_INT", npts=u; u="Leg");
   deg=2*npts-1;
-  if (typ=="t_STR", typ=findpolynomial(u); 
-    if (typ=="Che", p1=-1/2; p2=p1; typ="Jac");
-    if (typ=="Leg", p1=0; p2=0; typ="Jac");
-    if (typ=="Geg", p1=p1-1/2; p2=p1; typ="Jac");
-    if (typ=="Jac", 
-      return(XW(dw_shift(dw_qe(qe_jacobi(deg,p1,p2)),[-1,1],[0,2]))));
-    if (typ=="Lag", return(XW(qe_laguerre(deg,p1))));
-    if (typ=="Her", return(XW(ab_hermite(deg,p1))));
-    if (typ=="Ref", return(XW(ab_refinable(npts,p1)))));
-  if (deg==0 & typ=="XW", return(u)); 
-  if (typ=="XW", 
-    return(vecextract(u,vector(npts,k,k),vector(matsize(u)[2],k,k))));
-  if (typ=="AB", return(xw_ab(u)));
-  if (typ=="QE", return(xw_dw(dw_qe(u))));
-  if (typ=="DW", return(xw_dw(u)))
+  if (type(u)=="t_STR", family=findpolynomial(u); 
+    if (family=="Che", p1=-1/2; p2=p1; family="Jac");
+    if (family=="Leg", p1=0; p2=0; family="Jac");
+    if (family=="Geg", p1=p1-1/2; p2=p1; family="Jac");
+    if (family=="Jac", u=qe_jacobi(deg,p1,p2); shifted=1);
+    if (family=="Lag", u=qe_laguerre(deg,p1));
+    if (family=="Her", u=ab_hermite(deg,p1));
+    if (family=="Ref", u=ab_refinable(npts,p1)) );
+\\ ---
+  if (is_AB(u), return(xw_ab(ab_modify(u))));
+  if (is_QE(u), u=dw_qe(qe_modify(u)); if (shifted, u[1]=u[1]-1);
+    return(xw_dw(u)),
+    error("Programming error: by now data should be QE, but is ",Type(u)));
 }
 
-{DW(u,npts,p1,p2)=my(typ,m,n,deg); typ=Type(u);
+{DW(u,npts,p1,p2)=my(m,n,deg); 
+  if (is_DW(u), return(u)); 
+  if (is_AB(u), return(dw_xw(xw_ab(u))));
+  if (is_SF(u), u=qe_sf(u));
+  if (is_QE(u), return(dw_qe(u)));
+  if (is_XW(u), return(dw_xw(u)));
   if (typ=="t_INT", npts=u; u="Leg"; typ="t_STR");
   deg=2*npts-1;
   if (typ=="t_STR", typ=findpolynomial(u); 
@@ -547,66 +687,116 @@ integrate(fct,xw)=my(s); for(j=1,matsize(xw)[1], x=xw[j,1]; s=s+xw[j,2]*eval(fct
     if (typ=="Lag", return(dw_qe(qe_laguerre(deg,p1))));
     if (typ=="Her", return(dw_xw(xw_ab(ab_hermite(deg,p1)))));
     if (typ=="Ref", return(dw_xw(xw_ab(ab_refinable(npts,p1))))));
-  if (deg==0 & typ=="DW", return(u)); 
-  if (typ=="DW", return([u[1],XW(u[2],npts)]));
-  if (typ=="AB", return(dw_xw(xw_ab(u))));
-  if (typ=="QE", return(dw_qe(u)));
-  if (typ=="XW", return(dw_xw(u)))
 }
 
-{MU(U,R)=my(typu,typr,mu); typu=Type(U); typr=Type(R);
-  if(typu=="QE" & typr=="QE", return(mu_qe(U,R)));
-  if(typu=="DW", U=XW(U); typu="XW");
-  if(typu=="XW", return(mu_xw(U,R)))} 
+MX(U,n)= { my(typ,serp=default(seriesprecision));
+  if(n, default(seriesprecision,n));
+  if(type(U)=="t_STR", typ=findpolynomial(U);
+    if (typ=="Che", p1=-1/2; p2=p1; typ="Jac");
+    if (typ=="Leg", return(log((1+t)/(1-t)))/t);
+    if (typ=="Geg", p1=p1-1/2; p2=p1; typ="Jac");
+    if (typ=="Jac", return(dw_qe(qe_jacobi(deg,p1,p2))));
+    if (typ=="Lag", return(dw_qe(qe_laguerre(deg,p1))));
+    if (typ=="Her", return(dw_xw(xw_ab(ab_hermite(deg,p1))))));
+  if(is_SF(U), subst(U,z,1/t)+O(t^(Dimension(U)+1)));
+}
 
-{Shift(u,I1,I2)=my(typ); typ=Type(u);
-  if (typ=="AB", return(ab_shift(u,I1,I2)));
-  if (typ=="XW", return(xw_shift(u,I1,I2)));
-  if (typ=="DW", return(dw_shift(u,I1,I2)));
-  if (typ=="MU", error("Not implemented: Shift MU"));
-  if (typ=="QE", return(qe_shift(u,I1,I2)))}
+{MU(U,R)=my(typ,mu); typ=Type(R);
+  if(is_QE(U) & typ=="QE", return(mu_qe(U,R)));
+  if(is_DW(U), U=XW(U));
+  if(is_XW(U), return(mu_xw(U,R)))} 
 
-{Dimension(u,typ)= if (typ==0, typ=Type(u));
-  if(typ=="MU", return(length(u)));
-  if(typ=="XW", return(2*matsize(u)[1]));
-  if(typ=="DW", return(2*matsize(u[2])[1]));
-  if(typ=="AB", return(length(u[1])+length(u[2])));
-  if(typ=="QE", return(length(u[1])+length(u[2])+1))}
+{NU(U,n,family)=my(Z);
+  if(is_NU(U),return(u));
+  if (type(family)!="t_STR",
+    if (type(n)=="t_STR", family=n; n=0));
+  if(!n, n=Dimension(U));
+print("n="n"  "U);
+  if (is_DW(U), U=XW(U));
+  if (is_XW(U), return(nu_xw(U));
+  if (is_QE(U), return(nu_qe(U)));
+  error("Not implemented: NU("Type(U)",n)"))}
+
+{SF(u)=
+  if(is_SF(u), return(u));
+  if(is_DW(u), u=xw_dw(u),
+  if(is_NU(u), u=qe_mu(u)));
+  if(is_XW(u), return(sf_xw(u)));
+  if(is_AB(u), return(sf_ab(u)));  
+  if(!is_QE(u), u=QE(u));
+  if(is_QE(u), return(sf_qe(u)))
+}
+
+{ Convert(U,V) =
+  if (is_QE(V), QE(U),
+  if (is_AB(V), AB(U),
+  if (is_XW(V), XW(U),
+  if (is_DW(V), DW(U),
+  if (is_SF(V), SF(U),
+  if (is_NU(V), NU(U)))))))
+}
+addhelp(Convert,"Convert(U,V): convert U to Type(V)")
+
+\\{Shift(u,I1,I2)=my(typ); typ=Type(u);
+\\  if (typ=="AB", return(ab_shift(u,I1,I2)));
+\\  if (typ=="XW", return(xw_shift(u,I1,I2)));
+\\  if (typ=="DW", return(dw_shift(u,I1,I2)));
+\\  if (typ=="MU", error("Not implemented: Shift MU"));
+\\  if (typ=="QE", return(qe_shift(u,I1,I2)))}
+{Shift(u,d)=
+  if (is_AB(u), for(k=1,#u[1], u[1][k]+=d));
+  if (is_XW(u), for(k=1,matsize(u)[1], u[k,1]+=d));
+  if (is_DW(u), u[1]+=d);
+  if (is_QE(u), u=stqd(u,-d));
+  if (is_SF(u), u=subst(u,z,z-d));
+  u
+}
+addhelp(Shift,"Shift(u,d): shift origin of support interval by d")
+
+{Scale(u,h)=my(c);
+  if (is_AB(u), u[1]*=h; u[2]*=h^2; u[2][1]/=h);
+  if (is_XW(u), u*=h);
+  if (is_DW(u), u*=h);
+  if (is_QE(u), u*=h);
+  if (is_NU(u), c=1; for(k=2,#u, c*=h; u[k]*=c));
+  if (is_SF(u), u=subst(u,x,x/h));
+  u
+}
+addhelp(Scale,"Scale(u,h): scale length of support interval by h")
+
+{Dimension(u)=
+  if(is_NU(u), return(#u));
+  if(is_XW(u), return(2*matsize(u)[1]));
+  if(is_DW(u), return(2*matsize(u[2])[1]));
+  if(is_AB(u), return(#u[1]+#u[2]));
+  if(is_QE(u), return(#u[1]+#u[2]+1));
+  if(is_SF(u), return(#numerator(u)+#denominator(u)-1));
+}
 addhelp(Dimension,"Dimension(u,{typ=Type(u)}): number of significant elements in u.")
 
-{Take(R,dim,typ)=my(n); if(dim==0, return(R));
-  if (typ==0, typ=Type(R));
-  if (typ=="MU", return(take(R,dim)), n=sign(dim)*floor(abs(dim)/2));
-  if (typ=="QE", R[1]=take(R[1],n); R[2]=take(R[2],dim-n-sign(dim)),
-    if (typ=="AB", R[1]=take(R[1],n); R[2]=take(R[2],dim-n),
-      error("Can't Take from Type "typ)));
+{Degree(u,v)=
+  if(!v,v=QE(Dimension(u)));
+  if(!is_QE(u), u=QE(u));
+  if(!is_QE(v), v=QE(v));
+  exactness(u,v)}
+addhelp(Degree,"Degree(u[,v]): degree of u, taking v as exact. Weight w(x)=1 over [0,2] by default.")
+
+{Take(R,dim)=my(n=sign(dim)*floor(abs(dim)/2));
+  if(dim==0, return(R));
+  if (is_NU(R), return(take(R,dim)));
+  if (is_QE(R), R[1]=take(R[1],n); R[2]=take(R[2],dim-n-sign(dim)),
+    if (is_AB(R), R[1]=take(R[1],n); R[2]=take(R[2],dim-n),
+      error("Can't Take from Type "Type(R))));
      R}
 
-{Type(u)=my(typ,typ2,len,rtyp); rtyp=0; typ=type(u); len=length(u);
-  if (typ=="t_MAT", rtyp="XW",
-    if (typ!="t_VEC", rtyp="?",
-      if(len<2, rtyp="MU")));
-  if (rtyp==0,
-    typ2=type(u[2]);
-    if (type(u[1])!="t_VEC", rtyp=if(len==2 & typ2=="t_MAT", "DW", "MU"),
-    if (length(u)==2 & typ2=="t_VEC", rtyp="AB",
-    if (length(u)==3 & typ2=="t_VEC" & type(u[3])!="t_VEC", rtyp="QE",
-    rtyp="MU"))));
-  Check(u,rtyp); if(rtyp=="?", typ, rtyp)}
-
-{Check(u,typ,force)=my(OK); if (force+DEBUG==0, return);
-  OK=1;
-  if(OK&typ=="XW", OK=inside(matsize(u)[2],[2,3]));
-  if(OK&typ=="DW", Check(u[2],"XW"));
-  if(OK&typ=="AB", OK=inside(length(u[2])-length(u[1]),[0,1]));
-  if(OK&typ=="QE", OK=inside(length(u[1])-length(u[2]),[0,1]));
-  if(OK&typ=="MU", for(j=1,length(u), if(type(u[j])=="t_VEC", OK=0; break)));
-  if(!OK, error(u" does not have the right shape for Type "typ))}
+porthos_types=["QE","AB","XW","DW","NU","SF"]
+{Type(gen)= my(name); 
+  for(i=1,#porthos_types, name=porthos_types[i];
+    if(eval(concat(["is_",name,"(gen)"])),return(name)) );
+  type(gen) }
 
 { print1("   <PORTHOS "floor(PORTHOS_VERSION/100)"."
    floor((PORTHOS_VERSION%100)/10)""PORTHOS_VERSION%10">"); 
-  read("~/pari/porthos-help.gp"); }
+  read("porthos-help.gp"); }
 
-ab_hermite(deg,p)=my(m); m=ceil(deg/2); [vector(m,n,0),concat(sqrt(Pi),vector(deg-m,n,n/2))];
-
-
+default(breakloop,0);

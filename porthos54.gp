@@ -604,7 +604,7 @@ addhelp(Dimension,"Dimension(u,{typ=Type(u)}): number of significant elements in
 
 { print1("   <PORTHOS "floor(PORTHOS_VERSION/100)"."
    floor((PORTHOS_VERSION%100)/10)""PORTHOS_VERSION%10">"); 
-  read("~/pari/porthos-help.gp"); }
+  read("porthos-help.gp"); }
 
 ab_hermite(deg,p)=local(m); m=ceil(deg/2); [vector(m,n,0),concat(sqrt(Pi),vector(deg-m,n,n/2))];
 

@@ -1,25 +1,38 @@
 {help_Types=
-"\nPORTHOS recognizes five Types by their shape.  The function 'Type(u)'"
-"\n   returns one of the values 'QE', 'AB', 'MU', 'XW', 'DW', or if none of"
-"\n   the five Types is recognized, simply returns Pari/GP's 'type(u)'."
-"\nType XW:  Nodes and weights of a quadrature formula"
+"\nPORTHOS recognizes eight Types, named 'QE', 'AB', 'MU', 'NU', 'XW', 'DW',"
+"\n'SF', 'FS',  by their Pari-GP types and shape, and provides"
+"\nfunctions 'is_QE' etc to test whether a given GEN is of the specified"
+"\nType. The function 'Type(u)' applies those tests in the given order"
+"\nand returns the string-value name of the first match, or if none of the" 
+"\neight Types is recognized, simply returns Pari/GP's 'type(u)'."
+"\nThe shapes admit an ambiguity: a 2x2 or 2x3 matrix satisfies 'is_XW'" 
+"\nas well as 'is_FS'. 'Type' will in that case return 'XW'."
+"\nType QE:  Two-term recursion coefficients; Stieltjes continued fraction."
+"\n     [Q,E,mu0].  Q and E are vectors; length(Q)-length(E) is 0 or 1."
+"\nType AB:  Three-term recursion coefficients; Jacobi continued fraction."
+"\n     [A,B].  A and B are vectors; length(B)-length(A) is 0 or 1."
+"\nType MU:  General modified moments."
+"\n     [nu,Z]. nu contains baseless moments, Z is the basis," 
+"\n     specified by an object that can be converted to type QE."
+"\nType NU:  Baseless modified moments, especially Chebyshev moments."
+"\n     [nu0,nu_1,...,nu_m]."  
+"\nType XW:  Nodes and weights of a quadrature formula or nested family"
 "\n     [x1,w1; x2,w2; ...;xn,wn] or [x1,w1,W1; x2,w2,W2; ...; xn,wn,Wn]."
 "\n  In the second case, the weights W1..Wn usually give higher degree."
-"\nType AB:  Three-term recursion coefficients"
-"\n     [A,B].  A and B are vectors; length(B)-length(A) is 0 or 1."
-"\nType QE:  Two-term recursion coefficients"
-"\n     [Q,E,mu0].  Q and E are vectors; length(Q)-length(E) is 0 or 1."
 "\nType DW:  Gaps and weights of a quadrature formula"
 "\n     [x0,dw], where dw has the same structure as Type XW"
-"\nType MU:  Modified moments."
-"\n     [mu0,mu_1,...,mu_m]";}
+"\nType SF: Stieltjies function."
+"\n     p/q where p is a polynomial of degree one less that that of q."
+"\nType FS: Factorial series."
+"\n     [x1,x2,x3,...,xn; w1,w2,...,wn]"
+;}
 
 {bugs=
 "\n  Three-term support is incomplete.  In particular, Gragg-Harrod has"
 "\nnot been implemented: the technique is to convert to"
 "\ntwo-term coefficients first.  This is unreliable and often may not work."
 "\n  Some routines (mainly those depending on stqd) may give zero divisors"
-"\nin a situation where the use of p_qe would have avoided them.";}
+"\nin a situation where the use of pu_qe would have avoided them.";}
 {help_stieltjes_function=
 "\nLet L be a linear functional defined on P_m, the space of polynomials of" 
 "\ndegree <= m.  In practice, L is the restriction to P_m of a functional"
@@ -30,7 +43,7 @@
 "\ndiscarding the O(t^(m+1)) terms, and applying L.  PORTHOS manipulates"
 "\nrepresentations of the Stieltjes function in terms of m+1 real numbers"  
 "\nnamed QE, AB, XW, DW, and MU, see help(.  R(x) is evaluated by "
-"\n'stieltjes_function(u,x)', where u is of Type AB, QE or XW.";}
+"\n'SF(u,x)', where u is of Type AB, QE or XW.";}
 {help_qe_ab_xw_dw=
 "\nThe Stieltjes function can be written as a continued fraction in two"
 "\nstandard ways:"
@@ -134,7 +147,7 @@
   "\n==Calculate gaps and weights==> DW"
   "\n==Calculate quadrature formula==> XW"
   "\n==Calculate modified moments==> MU"
-  "\n==Evaluate Stieltjes function==> stieltjes_function"
+  "\n==Evaluate Stieltjes function==> SF"
   "\n==Evaluate orthogonal polynomials==> o_pol"
   "\n==Manipulate orthogonal series==> o_ser o_mulx o_dot"
   "\n==Shift to another interval==> Shift"
@@ -200,7 +213,7 @@ addhelp(qe_xw, "qe_xw(xw)");
 addhelp(ab_dw, "ab_dw(dw)");
 addhelp(ab_xw, "ab_xw(xw)");
 addhelp(dw_ab, "dw_ab(ab)");
-addhelp(xw_qe, "xw_qe(qe,{n})");
+\\addhelp(xw_qe, "xw_qe(qe,{n})");
 addhelp(xw_ab, "xw_ab(ab,{n})");
 addhelp(fs_xw, "fs_xw(xw): transform to inverse factorial series");
 addhelp(r_qe, "r_qe(qe,x): evaluate Stieltjes function at x");
