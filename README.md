@@ -30,14 +30,16 @@ Why another package if Gautschi's is so good?
 Why the name Porthos?
 ---------------------
 
-To honour a famous musketeer from the land of Legendre, Laplace, Laguerre, Hermite, Cauchy, Darboux and Padé, where briefly also Stieltjes lived and died, and where Bill Allombert and Karim Belabas are currently maintaining Pari-GP.
+In honour of a fictional 17th-century musketeer from the land of Legendre, Laplace, Laguerre, Hermite, Cauchy, Darboux and Padé, where briefly also Stieltjes lived and died, Henri Cohen conceived Pari-GP, and Bill Allombert and Karim Belabas are currently maintaining it, who liked to just do things first and think about them later.
 
 Quick start
 -----------
 
 `porthos54.gp` works with Pari-GP before 2.4.
 
-`porthos60.gp` works with Pari-GP from 2.4 onwards. In this repository, it is simply called `porthos.gp`.
+`porthos60.gp` is almost the same, but works with Pari-GP from 2.4 onwards.
+
+`porthos.gp` is the current version, which at present might work with an earlier release but is developed under Pari 2.7.
 
 Fire up your `gp` with the appropriate package. You will see a message saying:
 
@@ -55,7 +57,7 @@ Do that. You will see:
     help(8): Exact vs numerical calculations
     help(9): Global variables
 
-Porthos does not quite have objects, but it uses Pari-GP's rich variety of recursive structured types to enable you to recognize its five kinds of pseudo-objects by their shape.
+Porthos does not quite have objects, but it uses Pari-GP's rich variety of recursively structured types to enable you to recognize its five kinds of pseudo-objects by their shape.
 
 ### Calculate a 10-point Gaussian quadature rule
 
@@ -75,7 +77,7 @@ The first seven terms of the result are
 
     [2, 0, 0, 0, 0, 0, -4/945]
 
-Thus the degree is 5 (Legendre polynomials 1 to 5 are integrated to 0) and the error constant on the sixth-degree term is -4/195. By way of contrast, let's do the same for the 3-point Gaussian rule. We know this rule also has degree 5, so we go straight for element number 7.
+Thus the degree is 5 (Legendre polynomials 1 to 5 are integrated to 0) and the error constant on the sixth-degree term is -4/945. By way of contrast, let's do the same for the 3-point Gaussian rule. We know this rule also has degree 5, so we go straight for element number 7.
 
     k6 = MU(XW(3),AB(12))[7]
 
@@ -83,4 +85,4 @@ The answer is -0.045714285714285714285..., clearly a rational number. Pari-GP ca
 
     bestappr(k6)
 
-This is -8/175, more than 10 times as large. A good example of [Brass and Schmeisser's remark](https://www.academia.edu/19806472/Error_estimates_for_interpolatory_quadrature_formulae): "Amongst all quadrature formulae with positive coefficients and fixed order m the Gauss type formulae are worst."
+This is -8/175, almost 11 times as large. A good example of [Brass and Schmeisser's remark](https://www.academia.edu/19806472/Error_estimates_for_interpolatory_quadrature_formulae): "Amongst all quadrature formulae with positive coefficients and fixed order m the Gauss type formulae are worst."
